@@ -1,1 +1,123 @@
-javascript:(function(){if(window.sfHelper){window.sfHelper.toggle();return;}let s=document.createElement('script');s.src='https://cloudflare.com{let w=document.createElement('script');w.src='https://cloudflare.com{init();};document.head.appendChild(w);};document.head.appendChild(s);function init(){window.sfHelper={active:false,engine:null,lastFen:'',toggle:function(){this.active=!this.active;if(this.active){this.start();}else{this.stop();}},start:function(){console.log('%c♟️ Engine Active','color:lime;font-weight:bold');this.engine=new Worker('https://cloudflare.com');this.engine.onmessage=function(e){if(e.data.includes('bestmove')){let m=e.data.split(' ')[1];if(m)draw(m);}};this.engine.postMessage('uci');this.engine.postMessage('isready');this.engine.postMessage('setoption name Skill Level value 20');this.loop=setInterval(()=>getFen(),1000);},stop:function(){clearInterval(this.loop);if(this.engine)this.engine.terminate();clear();console.log('%c♟️ Engine Stopped','color:orange');}};window.sfHelper.toggle();}function getFen(){let f='';let b=document.querySelector('wc-chess-board')||document.querySelector('chess-board');if(b&&b.getAttribute('fen'))f=b.getAttribute('fen');if(!f&&window.chessboard&&window.chessboard.instance)f=window.chessboard.instance.position().fen;if(!f){let l=document.querySelector('.cg-wrap');if(l&&window.Chessground){f='Lichess detected';}}if(f&&f!==window.sfHelper.lastFen){window.sfHelper.lastFen=f;clear();if(f==='Lichess detected'){let m=document.querySelectorAll('g.last-move line');if(m.length)return;}window.sfHelper.engine.postMessage('position fen '+f);window.sfHelper.engine.postMessage('go movetime 1000');}}function draw(move){clear();let from=move.substr(0,2);let to=move.substr(2,2);highlight(from,'rgba(0, 255, 0, 0.4)');highlight(to,'rgba(0, 128, 255, 0.5)');}function highlight(sq,color){let b=document.querySelector('wc-chess-board')||document.querySelector('chess-board')||document.querySelector('.board');if(!b)return;let el=document.createElement('div');el.className='sf-b';el.style.position='absolute';el.style.zIndex='10';el.style.backgroundColor=color;el.style.pointerEvents='none';let f=sq.charCodeAt(0)-97;let r=8-parseInt(sq[1]);let isFlipped=b.classList.contains('flipped')||b.classList.contains('orientation-black')||document.querySelector('.cg-wrap.orientation-black');if(isFlipped){f=7-f;r=7-r;}el.style.left=(f*12.5)+'%';el.style.top=(r*12.5)+'%';el.style.width='12.5%';el.style.height='12.5%';b.appendChild(el);}function clear(){document.querySelectorAll('.sf-b').forEach(e=>e.remove());}})();
+javascript:(function(){
+    if(window.sfhelper){
+        window.sfhelper.toggle();
+        return;
+    }
+
+    // Initialize the main engine helper object
+    function init(){
+        window.sfhelper = {
+            active: false,
+            engine: null,
+            lastfen: '',
+            
+            toggle: function(){
+                this.active = !this.active;
+                if(this.active){
+                    this.start();
+                } else {
+                    this.stop();
+                }
+            },
+            
+            start: function(){
+                console.log('%c♟️ engine active', 'color:lime;font-weight:bold');
+                
+                // Load a publicly hosted, CORS-compliant Stockfish Web Worker
+                this.engine = new Worker('https://cloudflare.com'); 
+                
+                this.engine.onmessage = function(e){
+                    if(e.data.includes('bestmove')){
+                        let parts = e.data.split(' ');
+                        let m = parts[1];
+                        if(m) draw(m);
+                    }
+                };
+                
+                this.engine.postMessage('uci');
+                this.engine.postMessage('isready');
+                this.engine.postMessage('setoption name Skill Level value 20');
+                
+                this.loop = setInterval(() => getfen(), 1000);
+            },
+            
+            stop: function(){
+                clearInterval(this.loop);
+                if(this.engine) this.engine.terminate();
+                clearHighlights();
+                console.log('%c♟️ engine stopped', 'color:orange');
+            }
+        };
+        window.sfhelper.toggle();
+    }
+
+    function getfen(){
+        let f = '';
+        let b = document.querySelector('wc-chess-board') || document.querySelector('chess-board');
+        
+        if(b && b.getAttribute('fen')) f = b.getAttribute('fen');
+        
+        if(f && f !== window.sfhelper.lastfen){
+            window.sfhelper.lastfen = f;
+            clearHighlights();
+            window.sfhelper.engine.postMessage('position fen ' + f);
+            window.sfhelper.engine.postMessage('go movetime 1000');
+        }
+    }
+
+    function draw(move){
+        clearHighlights();
+        let from = move.substr(0,2);
+        let to = move.substr(2,2);
+        highlight(from, 'rgba(0, 255, 0, 0.4)');
+        highlight(to, 'rgba(0, 128, 255, 0.5)');
+    }
+
+    // Maps chess algebraic notation to visual CSS coordinate squares on Chess.com
+    function highlight(sq, color){
+        let b = document.querySelector('wc-chess-board') || document.querySelector('chess-board');
+        if(!b) return;
+        
+        let files = ['a','b','c','d','e','f','g','h'];
+        let ranks = ['1','2','3','4','5','6','7','8'];
+        
+        // Handle board orientation (flipped for black)
+        let isFlipped = b.classList.contains('flipped');
+        
+        let fileIdx = files.indexOf(sq[0]);
+        let rankIdx = ranks.indexOf(sq[1]);
+        
+        if(isFlipped){
+            fileIdx = 7 - fileIdx;
+        } else {
+            rankIdx = 7 - rankIdx;
+        }
+        
+        let x = (fileIdx + 1);
+        let y = (rankIdx + 1);
+        
+        let hl = document.createElement('div');
+        hl.className = 'sf-highlight square-' + x + y;
+        hl.style.position = 'absolute';
+        hl.style.backgroundColor = color;
+        hl.style.zIndex = '1';
+        hl.style.pointerEvents = 'none';
+        
+        // Dynamically match style rules of the active chess board type
+        if(b.tagName.toLowerCase() === 'wc-chess-board') {
+            hl.style.left = ((x - 1) * 12.5) + '%';
+            hl.style.top = ((y - 1) * 12.5) + '%';
+            hl.style.width = '12.5%';
+            hl.style.height = '12.5%';
+        }
+        
+        b.appendChild(hl);
+    }
+
+    function clearHighlights(){
+        document.querySelectorAll('.sf-highlight').forEach(el => el.remove());
+    }
+
+    init();
+})();
+
